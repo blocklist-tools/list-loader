@@ -8,6 +8,7 @@ import java.time.Duration;
 public class ApiClient {
     protected static HttpClient buildHttpClient() {
         return HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_2)
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(60))
                 .build();

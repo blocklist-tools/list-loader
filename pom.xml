@@ -2,8 +2,8 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.developerdan.blocklist</groupId>
-    <artifactId>loader</artifactId>
+    <groupId>com.developerdan</groupId>
+    <artifactId>blocklist-loader</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>List Loader</name>
     <description>List Loader</description>
@@ -23,15 +23,20 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.developerdan.blocklist</groupId>
-            <artifactId>tools</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <groupId>com.developerdan</groupId>
+            <artifactId>blocklist-tools</artifactId>
+            <version>0.0.4</version>
         </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.2.3</version>
         </dependency>
 
         <dependency>
@@ -67,12 +72,6 @@
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <version>${assertj.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>1.2.3</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

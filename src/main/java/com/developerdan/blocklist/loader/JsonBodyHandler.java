@@ -1,7 +1,6 @@
 package com.developerdan.blocklist.loader;
 
 import com.developerdan.blocklist.loader.Entity.Version;
-import com.developerdan.blocklist.tools.Domain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;

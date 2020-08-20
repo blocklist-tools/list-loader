@@ -1,0 +1,10 @@
+version: '3.1'
+
+services:
+  list-loader:
+    build:
+      context: .
+    dns:
+      - 192.168.4.113
+      - 192.168.4.30
+      - 192.168.4.59

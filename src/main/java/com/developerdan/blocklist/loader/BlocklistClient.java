@@ -5,7 +5,6 @@ import com.developerdan.blocklist.loader.Entity.Version;
 import com.developerdan.blocklist.tools.Domain;
 import com.developerdan.blocklist.tools.ParsedList;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -14,18 +13,16 @@ import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class BlocklistClient extends ApiClient {
 
-    private HttpClient httpClient;
+    private final static String BASE_URL = "http://clayface.local:8181";
+    private final HttpClient httpClient;
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new ParameterNamesModule())
             .registerModule(new Jdk8Module())
@@ -36,7 +33,7 @@ public class BlocklistClient extends ApiClient {
     }
 
     public List<Blocklist> getLists() {
-        var request = buildHttpRequest("http://localhost:8080/blocklists")
+        var request = buildHttpRequest(BASE_URL + "/blocklists")
                 .GET().build();
         try {
             var response = httpClient.send(request, new JsonBodyHandler<>(Blocklist[].class));
@@ -48,7 +45,7 @@ public class BlocklistClient extends ApiClient {
 
     public Version createVersion(Version version) {
         HttpResponse response;
-        var request = buildHttpRequest("http://localhost:8080/versions")
+        var request = buildHttpRequest(BASE_URL + "/versions")
                 .POST(JsonBodyHandler.requestFromVersion(version)).build();
         try {
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -65,17 +62,29 @@ public class BlocklistClient extends ApiClient {
         }
     }
 
+    public void deleteVersion(Version version) {
+        HttpResponse response;
+        var request = buildHttpRequest(BASE_URL + "/versions/" + version.getId())
+                .DELETE().build();
+        try {
+            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (IOException|InterruptedException e) {
+            throw new ApiException(e);
+        }
+        if (response.statusCode() != 200) {
+            throw new ApiException("Unable to delete version. Api Status: " + response.statusCode() + ", body: " + response.body());
+        }
+    }
+
     public void createEntries(ParsedList<Domain> parsedList, Version version) {
         var records = parsedList.getRecords().stream().parallel().map(Domain::toString).collect(Collectors.toList());
         batches(records, 1000)
-                .forEach((domains) -> {
-                    createEntriesBatch(domains, version);
-                });
+                .forEach((domains) -> createEntriesBatch(domains, version));
     }
 
     private void createEntriesBatch(List<String> entries, Version version) {
         HttpResponse response;
-        var request = buildHttpRequest("http://localhost:8080/versions/" + version.getId() + "/entries")
+        var request = buildHttpRequest(BASE_URL + "/versions/" + version.getId() + "/entries")
                 .PUT(JsonBodyHandler.requestFromDomains(entries)).build();
         try {
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());

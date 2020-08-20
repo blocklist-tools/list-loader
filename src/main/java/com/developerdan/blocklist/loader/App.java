@@ -6,16 +6,17 @@ import com.developerdan.blocklist.tools.BlocklistParser;
 import com.developerdan.blocklist.tools.Domain;
 import com.developerdan.blocklist.tools.DomainListParser;
 import com.developerdan.blocklist.tools.HostsParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class App {
+    private static final Logger LOGGER = LoggerFactory.getLogger(App.class);
     private static BlocklistClient client;
 
     public static void main(final String[] args) {
         client = new BlocklistClient();
         var lists = client.getLists();
-        lists.stream()
-                .parallel()
-                .forEach(App::parseList);
+        lists.forEach(App::parseList);
     }
 
     private static BlocklistParser<Domain> getParser(String format) {
@@ -28,10 +29,23 @@ public class App {
     }
 
     private static void parseList(Blocklist list) {
-        var blocklistParser = getParser(list.getFormat());
-        var parsedList = blocklistParser.parseUrl(list.getDownloadUrl());
-        var version = new Version(list, parsedList);
-        var createdVersion = client.createVersion(version);
-        client.createEntries(parsedList, createdVersion);
+        Version createdVersion = null;
+        try {
+            var blocklistParser = getParser(list.getFormat());
+            var parsedList = blocklistParser.parseUrl(list.getDownloadUrl());
+            if (parsedList.getRecords().isEmpty()) {
+                LOGGER.warn("List {} is empty!", list.getName());
+            }
+            LOGGER.info("List {} has {} entries.", list.getName(), parsedList.getRecords().size());
+            var version = new Version(list, parsedList);
+            createdVersion = client.createVersion(version);
+            client.createEntries(parsedList, createdVersion);
+        } catch (Throwable e) {
+            LOGGER.error("Failed to parse {}, due to {}.", list.getName(), e.getMessage());
+            if (createdVersion != null) {
+                LOGGER.warn("Deleting list version {} for blocklist {}, due to error.", createdVersion.getId(), list.getName());
+                client.deleteVersion(createdVersion);
+            }
+        }
     }
 }
