@@ -8,7 +8,7 @@ import java.util.UUID;
 public class Version {
     private UUID id;
     private UUID blocklistId;
-    private long entries;
+    private long numEntries;
     private String rawSha256;
     private String parsedSha256;
     private Instant createdOn;
@@ -22,7 +22,7 @@ public class Version {
         this.blocklistId = blocklist.getId();
         this.rawSha256 = parsedList.getOriginalSha();
         this.parsedSha256 = parsedList.getParsedSha();
-        this.entries = parsedList.getRecords().size();
+        this.numEntries = parsedList.getRecords().size();
     }
 
     public UUID getId() {
@@ -41,12 +41,12 @@ public class Version {
         this.blocklistId = blocklistId;
     }
 
-    public long getEntries() {
-        return entries;
+    public long getNumEntries() {
+        return numEntries;
     }
 
-    public void setEntries(long entries) {
-        this.entries = entries;
+    public void setNumEntries(long numEntries) {
+        this.numEntries = numEntries;
     }
 
     public String getRawSha256() {
