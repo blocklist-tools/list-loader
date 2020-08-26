@@ -9,10 +9,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,7 +24,8 @@ import java.util.stream.Stream;
 
 public class BlocklistClient extends ApiClient {
 
-    private final static String BASE_URL = "http://clayface.local:8181";
+    private static final Logger LOGGER = LoggerFactory.getLogger(BlocklistClient.class);
+    private static final String BASE_URL = "http://clayface.local:8181";
     private final HttpClient httpClient;
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new ParameterNamesModule())
@@ -33,8 +37,22 @@ public class BlocklistClient extends ApiClient {
     }
 
     public List<Blocklist> getLists() {
-        var request = buildHttpRequest(BASE_URL + "/blocklists")
+        List<Blocklist> allLists = new ArrayList<>(200);
+        List<Blocklist> page;
+        int pageNumber = 0;
+
+        do {
+            page = getLists(pageNumber);
+            allLists.addAll(page);
+            pageNumber++;
+        } while (!page.isEmpty());
+        return allLists;
+    }
+
+    public List<Blocklist> getLists(int page) {
+        var request = buildHttpRequest(BASE_URL + "/blocklists?page=" + page)
                 .GET().build();
+        LOGGER.info("Loading blocklists page {}", page);
         try {
             var response = httpClient.send(request, new JsonBodyHandler<>(Blocklist[].class));
             return Arrays.asList(response.body());
