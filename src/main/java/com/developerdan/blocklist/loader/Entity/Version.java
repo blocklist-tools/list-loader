@@ -1,6 +1,7 @@
 package com.developerdan.blocklist.loader.Entity;
 
 import com.developerdan.blocklist.tools.ParsedList;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -13,6 +14,9 @@ public class Version {
     private String parsedSha256;
     private Instant createdOn;
     private Instant lastSeen;
+
+    @JsonIgnore
+    private boolean newlyCreated = false;
 
     public Version() {
         // bean
@@ -79,5 +83,13 @@ public class Version {
 
     public void setLastSeen(Instant lastSeen) {
         this.lastSeen = lastSeen;
+    }
+
+    public boolean isNewlyCreated() {
+        return newlyCreated;
+    }
+
+    public void setNewlyCreated(boolean newlyCreated) {
+        this.newlyCreated = newlyCreated;
     }
 }

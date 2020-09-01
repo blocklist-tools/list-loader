@@ -74,7 +74,9 @@ public class BlocklistClient extends ApiClient {
             throw new ApiException("Unable to create version. Api Status: " + response.statusCode() + ", body: " + response.body());
         }
         try {
-            return MAPPER.readValue((String)response.body(), Version.class);
+            var apiVersion = MAPPER.readValue((String)response.body(), Version.class);
+            apiVersion.setNewlyCreated(response.statusCode() == 201);
+            return apiVersion;
         } catch (JsonProcessingException e) {
             throw new ApiException("Unable to parse version entity from response body: " + response.body(), e);
         }

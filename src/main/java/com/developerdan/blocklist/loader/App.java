@@ -42,7 +42,7 @@ public class App {
             client.createEntries(parsedList, createdVersion);
         } catch (Throwable e) {
             LOGGER.error("Failed to parse {}, due to {}.", list.getName(), e.getMessage());
-            if (createdVersion != null) {
+            if (createdVersion != null && createdVersion.isNewlyCreated()) {
                 LOGGER.warn("Deleting list version {} for blocklist {}, due to error.", createdVersion.getId(), list.getName());
                 client.deleteVersion(createdVersion);
             }
