@@ -17,9 +17,10 @@ public class ApiClient {
     protected HttpRequest.Builder buildHttpRequest(String url) {
         return HttpRequest
                 .newBuilder()
-                .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:78.0) Gecko/20100101 Firefox/78.0")
+                .header("User-Agent", "Blocklist Tools: List Loader")
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
+                .header("Authorization-Token", "ce2f3b4d-856a-4710-94db-b907e65a7bde")
                 .uri(URI.create(url));
     }
 }

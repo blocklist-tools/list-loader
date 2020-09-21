@@ -22,11 +22,13 @@ public class Version {
         // bean
     }
 
-    public Version(Blocklist blocklist, ParsedList parsedList) {
-        this.blocklistId = blocklist.getId();
+    public Version(UUID blocklistId, ParsedList parsedList, Instant createdOn) {
+        this.blocklistId = blocklistId;
         this.rawSha256 = parsedList.getOriginalSha();
         this.parsedSha256 = parsedList.getParsedSha();
         this.numEntries = parsedList.getRecords().size();
+        this.createdOn = createdOn;
+        this.lastSeen = createdOn;
     }
 
     public UUID getId() {

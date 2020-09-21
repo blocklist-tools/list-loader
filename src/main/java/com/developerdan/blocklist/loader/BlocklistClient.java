@@ -18,6 +18,7 @@ import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -61,9 +62,25 @@ public class BlocklistClient extends ApiClient {
         }
     }
 
+    public Blocklist getList(UUID id) {
+        var request = buildHttpRequest(BASE_URL + "/blocklists/" + id)
+                .GET().build();
+        LOGGER.info("Loading blocklist page {}", id);
+        try {
+            var response = httpClient.send(request, new JsonBodyHandler<>(Blocklist.class));
+            return response.body();
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public Version createVersion(Version version) {
         HttpResponse response;
-        var request = buildHttpRequest(BASE_URL + "/versions")
+        var historical = "";
+        if (version.getCreatedOn() != null) {
+            historical = "?historical=true";
+        }
+        var request = buildHttpRequest(BASE_URL + "/versions" + historical)
                 .POST(JsonBodyHandler.requestFromVersion(version)).build();
         try {
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());

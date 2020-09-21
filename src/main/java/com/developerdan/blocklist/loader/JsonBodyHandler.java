@@ -1,5 +1,6 @@
 package com.developerdan.blocklist.loader;
 
+import com.developerdan.blocklist.loader.Entity.HistoricalList;
 import com.developerdan.blocklist.loader.Entity.Version;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,6 +13,9 @@ import java.io.UncheckedIOException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class JsonBodyHandler<W> implements HttpResponse.BodyHandler<W> {
@@ -60,6 +64,14 @@ public class JsonBodyHandler<W> implements HttpResponse.BodyHandler<W> {
             return HttpRequest.BodyPublishers.ofString(body);
         } catch (JsonProcessingException ex) {
             throw new ApiException(ex);
+        }
+    }
+
+    public static List<HistoricalList> historicalLists(Path filePath) {
+        try {
+            return Arrays.asList(MAPPER.readValue(filePath.toFile(), HistoricalList[].class));
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
         }
     }
 }
