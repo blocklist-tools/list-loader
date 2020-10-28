@@ -8,3 +8,6 @@ services:
       - 192.168.4.113
       - 192.168.4.30
       - 192.168.4.59
+    environment:
+      BLOCKLIST_API_BASE_URL: "${BLOCKLIST_API_BASE_URL}"
+      BLOCKLIST_API_AUTH_TOKEN: "${BLOCKLIST_API_AUTH_TOKEN}"

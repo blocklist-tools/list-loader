@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,14 +27,15 @@ import java.util.stream.Stream;
 public class BlocklistClient extends ApiClient {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BlocklistClient.class);
-    private static final String BASE_URL = "http://clayface.local:8181";
+    private final Configuration configuration;
     private final HttpClient httpClient;
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new ParameterNamesModule())
             .registerModule(new Jdk8Module())
             .registerModule(new JavaTimeModule());
 
-    public BlocklistClient() {
+    public BlocklistClient(Configuration configuration) {
+        this.configuration = configuration;
         httpClient = buildHttpClient();
     }
 
@@ -51,7 +53,8 @@ public class BlocklistClient extends ApiClient {
     }
 
     public List<Blocklist> getLists(int page) {
-        var request = buildHttpRequest(BASE_URL + "/blocklists?page=" + page)
+        var url = buildUrl("/blocklists?page=" + page);
+        var request = buildHttpRequest(url)
                 .GET().build();
         LOGGER.info("Loading blocklists page {}", page);
         try {
@@ -63,7 +66,8 @@ public class BlocklistClient extends ApiClient {
     }
 
     public Blocklist getList(UUID id) {
-        var request = buildHttpRequest(BASE_URL + "/blocklists/" + id)
+        var url = buildUrl("/blocklists/" + id);
+        var request = buildHttpRequest(url)
                 .GET().build();
         LOGGER.info("Loading blocklist page {}", id);
         try {
@@ -80,7 +84,8 @@ public class BlocklistClient extends ApiClient {
         if (version.getCreatedOn() != null) {
             historical = "?historical=true";
         }
-        var request = buildHttpRequest(BASE_URL + "/versions" + historical)
+        var url = buildUrl("/versions" + historical);
+        var request = buildHttpRequest(url)
                 .POST(JsonBodyHandler.requestFromVersion(version)).build();
         try {
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -101,7 +106,8 @@ public class BlocklistClient extends ApiClient {
 
     public void deleteVersion(Version version) {
         HttpResponse response;
-        var request = buildHttpRequest(BASE_URL + "/versions/" + version.getId())
+        var url = buildUrl("/versions/" + version.getId());
+        var request = buildHttpRequest(url)
                 .DELETE().build();
         try {
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -121,7 +127,8 @@ public class BlocklistClient extends ApiClient {
 
     private void createEntriesBatch(List<String> entries, Version version) {
         HttpResponse response;
-        var request = buildHttpRequest(BASE_URL + "/versions/" + version.getId() + "/entries")
+        var url = buildUrl("/versions/" + version.getId() + "/entries");
+        var request = buildHttpRequest(url)
                 .PUT(JsonBodyHandler.requestFromDomains(entries)).build();
         try {
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -142,5 +149,15 @@ public class BlocklistClient extends ApiClient {
         int fullChunks = (size - 1) / length;
         return IntStream.range(0, fullChunks + 1).mapToObj(
                 n -> source.subList(n * length, n == fullChunks ? size : (n + 1) * length));
+    }
+
+    private String buildUrl(String url) {
+        return configuration.blocklistApiBaseUrl() + url;
+    }
+
+    @Override
+    protected HttpRequest.Builder buildHttpRequest(String url) {
+        return super.buildHttpRequest(url)
+                .header("Authorization-Token", configuration.blocklistApiAuthToken());
     }
 }

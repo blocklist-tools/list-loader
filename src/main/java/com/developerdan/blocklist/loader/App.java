@@ -25,7 +25,7 @@ public class App {
 
     public static void main(final String[] args) {
         parseArgs(args);
-        client = new BlocklistClient();
+        client = new BlocklistClient(new Configuration());
         if (loadHistory) {
             loadHistory();
         } else {
@@ -42,7 +42,7 @@ public class App {
     private static void loadHistory() {
         var list = client.getList(blocklistId);
         var versions = JsonBodyHandler.historicalLists(historyLoadFilePath);
-        versions.forEach((history) -> parseHistoricalList(list, history));
+        versions.forEach(history -> parseHistoricalList(list, history));
     }
 
     private static BlocklistParser<Domain> getParser(String format) {
