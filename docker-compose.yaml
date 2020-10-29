@@ -11,3 +11,5 @@ services:
     environment:
       BLOCKLIST_API_BASE_URL: "${BLOCKLIST_API_BASE_URL}"
       BLOCKLIST_API_AUTH_TOKEN: "${BLOCKLIST_API_AUTH_TOKEN}"
+    volumes:
+     - ./history-files:/opt/history-files
