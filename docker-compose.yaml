@@ -13,3 +13,13 @@ services:
       BLOCKLIST_API_AUTH_TOKEN: "${BLOCKLIST_API_AUTH_TOKEN}"
     volumes:
      - ./history-files:/opt/history-files
+
+  mvn:
+    image: maven:3.6-openjdk-14
+    volumes:
+      - "${PWD}/:/opt/list-loader"
+      - "${HOME}/.m2:/root/.m2"
+    working_dir: /opt/list-loader
+    environment:
+      BLOCKLIST_API_BASE_URL: "${BLOCKLIST_API_BASE_URL}"
+      BLOCKLIST_API_AUTH_TOKEN: "${BLOCKLIST_API_AUTH_TOKEN}"

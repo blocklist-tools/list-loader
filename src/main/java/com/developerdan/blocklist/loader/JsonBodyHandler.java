@@ -1,7 +1,9 @@
 package com.developerdan.blocklist.loader;
 
-import com.developerdan.blocklist.loader.Entity.HistoricalList;
-import com.developerdan.blocklist.loader.Entity.Version;
+import com.developerdan.blocklist.loader.entity.HistoricalList;
+import com.developerdan.blocklist.loader.entity.ListImport;
+import com.developerdan.blocklist.loader.entity.Version;
+import com.developerdan.blocklist.tools.Domain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
@@ -15,6 +17,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class JsonBodyHandler<W> implements HttpResponse.BodyHandler<W> {
@@ -66,9 +69,21 @@ public class JsonBodyHandler<W> implements HttpResponse.BodyHandler<W> {
         }
     }
 
+    public static HttpRequest.BodyPublisher requestFromDomain(Domain domain) {
+        try {
+            var body = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(domain);
+            return HttpRequest.BodyPublishers.ofString(body);
+        } catch (JsonProcessingException ex) {
+            throw new ApiException(ex);
+        }
+    }
+
     public static List<HistoricalList> historicalLists(Path filePath) {
         try {
-            return Arrays.asList(MAPPER.readValue(filePath.toFile(), HistoricalList[].class));
+            var listImport = MAPPER.readValue(filePath.toFile(), ListImport.class);
+            var versions = Arrays.asList(listImport.getVersions());
+            Collections.sort(versions);
+            return versions;
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
