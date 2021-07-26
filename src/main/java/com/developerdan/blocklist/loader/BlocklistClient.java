@@ -17,12 +17,12 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.NavigableSet;
-import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class BlocklistClient extends ApiClient {
 
@@ -55,7 +55,7 @@ public class BlocklistClient extends ApiClient {
         var url = buildUrl("/blocklists?page=" + page);
         var request = buildHttpRequest(url)
                 .GET().build();
-        LOGGER.info("Loading blocklists page {}", page);
+        LOGGER.debug("Loading blocklists page {}", page);
         try {
             var response = httpClient.send(request, new JsonBodyHandler<>(Blocklist[].class));
             return Arrays.asList(response.body());
@@ -68,7 +68,7 @@ public class BlocklistClient extends ApiClient {
         var url = buildUrl("/blocklists/" + id);
         var request = buildHttpRequest(url)
                 .GET().build();
-        LOGGER.info("Loading blocklist page {}", id);
+        LOGGER.debug("Loading blocklist page {}", id);
         try {
             var response = httpClient.send(request, new JsonBodyHandler<>(Blocklist.class));
             return response.body();
@@ -81,7 +81,7 @@ public class BlocklistClient extends ApiClient {
         var url = buildUrl("/blocklists/" + blocklistId + "/versions");
         var request = buildHttpRequest(url)
                 .GET().build();
-        LOGGER.info("Loading versions for blocklist {}", blocklistId);
+        LOGGER.trace("Loading versions for blocklist {}", blocklistId);
         try {
             var response = httpClient.send(request, new JsonBodyHandler<>(Version[].class));
             return response.body();
@@ -92,9 +92,10 @@ public class BlocklistClient extends ApiClient {
 
     public Version createVersion(Version version) {
         HttpResponse response;
-        var request = buildHttpRequest("/versions")
+        var request = buildHttpRequest(buildUrl("/versions"))
                 .POST(JsonBodyHandler.requestFromVersion(version)).build();
         try {
+            LOGGER.trace("Creating new blocklist version for blocklist {}.", version.getBlocklistId());
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         } catch (IOException|InterruptedException e) {
             throw new ApiException(e);
@@ -111,9 +112,10 @@ public class BlocklistClient extends ApiClient {
 
     public Version updateVersion(Version version) {
         HttpResponse response;
-        var request = buildHttpRequest("/versions")
+        var request = buildHttpRequest(buildUrl("/versions"))
                 .PUT(JsonBodyHandler.requestFromVersion(version)).build();
         try {
+            LOGGER.trace("Updating blocklist version {}.", version.getId());
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         } catch (IOException|InterruptedException e) {
             throw new ApiException(e);
@@ -134,6 +136,7 @@ public class BlocklistClient extends ApiClient {
         var request = buildHttpRequest(url)
                 .DELETE().build();
         try {
+            LOGGER.warn("Deleting blocklist version {}.", version.getId());
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         } catch (IOException|InterruptedException e) {
             throw new ApiException(e);
@@ -143,41 +146,39 @@ public class BlocklistClient extends ApiClient {
         }
     }
 
-    public void startEntryPeriod(Version initialVersion, Domain domain) {
-        HttpResponse response;
+    public CompletableFuture<Boolean> startEntryPeriod(Version initialVersion, Domain domain) {
         var url = buildUrl("/blocklists/" + initialVersion.getBlocklistId() + "/versions/" + initialVersion.getId() + "/entries");
         var request = buildHttpRequest(url)
-                .POST(JsonBodyHandler.requestFromDomain(domain)).build();
-        try {
-            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        } catch (IOException|InterruptedException e) {
-            throw new ApiException(e);
-        }
-        if (response.statusCode() != 201) {
-            throw new ApiException("Unable to start entry period. Api Status: " + response.statusCode() + ", body: " + response.body());
-        }
+                .POST(HttpRequest.BodyPublishers.ofString(domain.toString())).build();
+        LOGGER.trace("Creating new entry period for blocklist {}, domain {}", initialVersion.getBlocklistId(), domain);
+        var future = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        return future.thenApply(response -> {
+            if (response.statusCode() != 201) {
+                throw new ApiException("Unable to start entry period. Api Status: " + response.statusCode() + ", body: " + response.body());
+            }
+            return true;
+        });
     }
 
-    public void endEntryPeriod(Version lastIncludedVersion, Domain domain) {
-        HttpResponse response;
+    public CompletableFuture<Boolean> endEntryPeriod(Version lastIncludedVersion, Domain domain) {
         var url = buildUrl("/blocklists/" + lastIncludedVersion.getBlocklistId() + "/versions/" + lastIncludedVersion.getId() + "/entries");
         var request = buildHttpRequest(url)
-                .PUT(JsonBodyHandler.requestFromDomain(domain)).build();
-        try {
-            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        } catch (IOException|InterruptedException e) {
-            throw new ApiException(e);
-        }
-        if (response.statusCode() != 201) {
-            throw new ApiException("Unable to end entry period. Api Status: " + response.statusCode() + ", body: " + response.body());
-        }
+                .PUT(HttpRequest.BodyPublishers.ofString(domain.toString())).build();
+        LOGGER.trace("Ending entry period for blocklist {}, domain {}", lastIncludedVersion.getBlocklistId(), domain);
+        var future = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        return future.thenApply(response -> {
+            if (response.statusCode() != 201) {
+                throw new ApiException("Unable to end entry period " + lastIncludedVersion.getId() + ". Api Status: " + response.statusCode() + ", body: " + response.body());
+            }
+            return true;
+        });
     }
 
     public ParsedList<Domain> getFullList(Version version) {
         var url = buildUrl("/versions/" + version.getId() + "/entries");
         var request = buildHttpRequest(url)
                 .GET().build();
-        LOGGER.info("Loading entries for version {}", version.getId());
+        LOGGER.trace("Loading entries for version {}", version.getId());
         try {
             var parser = new DomainListParser();
             var response = httpClient.send(request, HttpResponse.BodyHandlers.ofLines());
@@ -196,6 +197,7 @@ public class BlocklistClient extends ApiClient {
     @Override
     protected HttpRequest.Builder buildHttpRequest(String url) {
         return super.buildHttpRequest(url)
-                .header("Authorization-Token", configuration.blocklistApiAuthToken());
+                .header("Authorization-Token", configuration.blocklistApiAuthToken())
+                .timeout(Duration.ofSeconds(120));
     }
 }

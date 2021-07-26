@@ -10,13 +10,14 @@ public class ApiClient {
         return HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_2)
                 .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(Duration.ofSeconds(60))
+                .connectTimeout(Duration.ofSeconds(120))
                 .build();
     }
 
     protected HttpRequest.Builder buildHttpRequest(String url) {
         return HttpRequest
                 .newBuilder()
+                .timeout(Duration.ofSeconds(120))
                 .header("User-Agent", "Blocklist Tools: List Loader")
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
