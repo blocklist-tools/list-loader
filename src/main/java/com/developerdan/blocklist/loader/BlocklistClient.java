@@ -1,8 +1,9 @@
 package com.developerdan.blocklist.loader;
 
-import com.developerdan.blocklist.loader.Entity.Blocklist;
-import com.developerdan.blocklist.loader.Entity.Version;
+import com.developerdan.blocklist.loader.entity.Blocklist;
+import com.developerdan.blocklist.loader.entity.Version;
 import com.developerdan.blocklist.tools.Domain;
+import com.developerdan.blocklist.tools.DomainListParser;
 import com.developerdan.blocklist.tools.ParsedList;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,13 +17,12 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
+import java.util.concurrent.CompletableFuture;
 
 public class BlocklistClient extends ApiClient {
 
@@ -42,8 +42,7 @@ public class BlocklistClient extends ApiClient {
     public List<Blocklist> getLists() {
         List<Blocklist> allLists = new ArrayList<>(200);
         List<Blocklist> page;
-        int pageNumber = 0;
-
+        var pageNumber = 0;
         do {
             page = getLists(pageNumber);
             allLists.addAll(page);
@@ -56,7 +55,7 @@ public class BlocklistClient extends ApiClient {
         var url = buildUrl("/blocklists?page=" + page);
         var request = buildHttpRequest(url)
                 .GET().build();
-        LOGGER.info("Loading blocklists page {}", page);
+        LOGGER.debug("Loading blocklists page {}", page);
         try {
             var response = httpClient.send(request, new JsonBodyHandler<>(Blocklist[].class));
             return Arrays.asList(response.body());
@@ -69,7 +68,7 @@ public class BlocklistClient extends ApiClient {
         var url = buildUrl("/blocklists/" + id);
         var request = buildHttpRequest(url)
                 .GET().build();
-        LOGGER.info("Loading blocklist page {}", id);
+        LOGGER.debug("Loading blocklist page {}", id);
         try {
             var response = httpClient.send(request, new JsonBodyHandler<>(Blocklist.class));
             return response.body();
@@ -78,27 +77,54 @@ public class BlocklistClient extends ApiClient {
         }
     }
 
+    public Version[] getVersions(UUID blocklistId) {
+        var url = buildUrl("/blocklists/" + blocklistId + "/versions");
+        var request = buildHttpRequest(url)
+                .GET().build();
+        LOGGER.trace("Loading versions for blocklist {}", blocklistId);
+        try {
+            var response = httpClient.send(request, new JsonBodyHandler<>(Version[].class));
+            return response.body();
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public Version createVersion(Version version) {
         HttpResponse response;
-        var historical = "";
-        if (version.getCreatedOn() != null) {
-            historical = "?historical=true";
-        }
-        var url = buildUrl("/versions" + historical);
-        var request = buildHttpRequest(url)
+        var request = buildHttpRequest(buildUrl("/versions"))
                 .POST(JsonBodyHandler.requestFromVersion(version)).build();
         try {
+            LOGGER.trace("Creating new blocklist version for blocklist {}.", version.getBlocklistId());
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         } catch (IOException|InterruptedException e) {
             throw new ApiException(e);
         }
-        if (response.statusCode() != 200 && response.statusCode() != 201) {
+        if (response.statusCode() != 201) {
             throw new ApiException("Unable to create version. Api Status: " + response.statusCode() + ", body: " + response.body());
         }
         try {
-            var apiVersion = MAPPER.readValue((String)response.body(), Version.class);
-            apiVersion.setNewlyCreated(response.statusCode() == 201);
-            return apiVersion;
+            return MAPPER.readValue((String)response.body(), Version.class);
+        } catch (JsonProcessingException e) {
+            throw new ApiException("Unable to parse version entity from response body: " + response.body(), e);
+        }
+    }
+
+    public Version updateVersion(Version version) {
+        HttpResponse response;
+        var request = buildHttpRequest(buildUrl("/versions"))
+                .PUT(JsonBodyHandler.requestFromVersion(version)).build();
+        try {
+            LOGGER.trace("Updating blocklist version {}.", version.getId());
+            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (IOException|InterruptedException e) {
+            throw new ApiException(e);
+        }
+        if (response.statusCode() != 200) {
+            throw new ApiException("Unable to update version. Api Status: " + response.statusCode() + ", body: " + response.body());
+        }
+        try {
+            return MAPPER.readValue((String)response.body(), Version.class);
         } catch (JsonProcessingException e) {
             throw new ApiException("Unable to parse version entity from response body: " + response.body(), e);
         }
@@ -110,6 +136,7 @@ public class BlocklistClient extends ApiClient {
         var request = buildHttpRequest(url)
                 .DELETE().build();
         try {
+            LOGGER.warn("Deleting blocklist version {}.", version.getId());
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         } catch (IOException|InterruptedException e) {
             throw new ApiException(e);
@@ -119,36 +146,48 @@ public class BlocklistClient extends ApiClient {
         }
     }
 
-    public void createEntries(ParsedList<Domain> parsedList, Version version) {
-        var records = parsedList.getRecords().stream().parallel().map(Domain::toString).collect(Collectors.toList());
-        batches(records, 1000)
-                .forEach((domains) -> createEntriesBatch(domains, version));
+    public CompletableFuture<Boolean> startEntryPeriod(Version initialVersion, Domain domain) {
+        var url = buildUrl("/blocklists/" + initialVersion.getBlocklistId() + "/versions/" + initialVersion.getId() + "/entries");
+        var request = buildHttpRequest(url)
+                .POST(HttpRequest.BodyPublishers.ofString(domain.toString())).build();
+        LOGGER.trace("Creating new entry period for blocklist {}, domain {}", initialVersion.getBlocklistId(), domain);
+        var future = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        return future.thenApply(response -> {
+            if (response.statusCode() != 201) {
+                throw new ApiException("Unable to start entry period. Api Status: " + response.statusCode() + ", body: " + response.body());
+            }
+            return true;
+        });
     }
 
-    private void createEntriesBatch(List<String> entries, Version version) {
-        HttpResponse response;
+    public CompletableFuture<Boolean> endEntryPeriod(Version lastIncludedVersion, Domain domain) {
+        var url = buildUrl("/blocklists/" + lastIncludedVersion.getBlocklistId() + "/versions/" + lastIncludedVersion.getId() + "/entries");
+        var request = buildHttpRequest(url)
+                .PUT(HttpRequest.BodyPublishers.ofString(domain.toString())).build();
+        LOGGER.trace("Ending entry period for blocklist {}, domain {}", lastIncludedVersion.getBlocklistId(), domain);
+        var future = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        return future.thenApply(response -> {
+            if (response.statusCode() != 201) {
+                throw new ApiException("Unable to end entry period " + lastIncludedVersion.getId() + ". Api Status: " + response.statusCode() + ", body: " + response.body());
+            }
+            return true;
+        });
+    }
+
+    public ParsedList<Domain> getFullList(Version version) {
         var url = buildUrl("/versions/" + version.getId() + "/entries");
         var request = buildHttpRequest(url)
-                .PUT(JsonBodyHandler.requestFromDomains(entries)).build();
+                .GET().build();
+        LOGGER.trace("Loading entries for version {}", version.getId());
         try {
-            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        } catch (IOException|InterruptedException e) {
-            throw new ApiException(e);
+            var parser = new DomainListParser();
+            var response = httpClient.send(request, HttpResponse.BodyHandlers.ofLines());
+            var parsedList = parser.parseStream(response.body());
+            parsedList.setOriginalSha(version.getRawSha256());
+            return parsedList;
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
         }
-        if (response.statusCode() != 201) {
-            throw new ApiException("Unable to create entry. Api Status: " + response.statusCode() + ", body: " + response.body());
-        }
-    }
-
-    private static <T> Stream<List<T>> batches(List<T> source, int length) {
-        if (length <= 0)
-            throw new IllegalArgumentException("length = " + length);
-        int size = source.size();
-        if (size <= 0)
-            return Stream.empty();
-        int fullChunks = (size - 1) / length;
-        return IntStream.range(0, fullChunks + 1).mapToObj(
-                n -> source.subList(n * length, n == fullChunks ? size : (n + 1) * length));
     }
 
     private String buildUrl(String url) {
@@ -158,6 +197,7 @@ public class BlocklistClient extends ApiClient {
     @Override
     protected HttpRequest.Builder buildHttpRequest(String url) {
         return super.buildHttpRequest(url)
-                .header("Authorization-Token", configuration.blocklistApiAuthToken());
+                .header("Authorization-Token", configuration.blocklistApiAuthToken())
+                .timeout(Duration.ofSeconds(120));
     }
 }

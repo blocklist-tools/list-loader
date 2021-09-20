@@ -1,4 +1,4 @@
-package com.developerdan.blocklist.loader.Entity;
+package com.developerdan.blocklist.loader.entity;
 
 import com.developerdan.blocklist.tools.ParsedList;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -14,21 +14,20 @@ public class Version {
     private String parsedSha256;
     private Instant createdOn;
     private Instant lastSeen;
-
-    @JsonIgnore
-    private boolean newlyCreated = false;
+    private boolean isFullyLoaded;
 
     public Version() {
         // bean
     }
 
-    public Version(UUID blocklistId, ParsedList parsedList, Instant createdOn) {
+    public Version(UUID blocklistId, ParsedList parsedList, Instant createdOn, boolean isFullyLoaded) {
         this.blocklistId = blocklistId;
         this.rawSha256 = parsedList.getOriginalSha();
         this.parsedSha256 = parsedList.getParsedSha();
         this.numEntries = parsedList.getRecords().size();
         this.createdOn = createdOn;
         this.lastSeen = createdOn;
+        this.isFullyLoaded = isFullyLoaded;
     }
 
     public UUID getId() {
@@ -87,11 +86,11 @@ public class Version {
         this.lastSeen = lastSeen;
     }
 
-    public boolean isNewlyCreated() {
-        return newlyCreated;
+    public boolean isFullyLoaded() {
+        return isFullyLoaded;
     }
 
-    public void setNewlyCreated(boolean newlyCreated) {
-        this.newlyCreated = newlyCreated;
+    public void setFullyLoaded(boolean fullyLoaded) {
+        isFullyLoaded = fullyLoaded;
     }
 }

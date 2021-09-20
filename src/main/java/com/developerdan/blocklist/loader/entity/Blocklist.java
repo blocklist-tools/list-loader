@@ -1,4 +1,4 @@
-package com.developerdan.blocklist.loader.Entity;
+package com.developerdan.blocklist.loader.entity;
 
 import java.util.UUID;
 
