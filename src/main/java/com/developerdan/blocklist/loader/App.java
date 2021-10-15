@@ -42,7 +42,7 @@ public class App {
         Collections.shuffle(lists);
         lists.forEach(list -> {
             var blocklistParser = getParser(list.getFormat());
-            parseList(list.getName(), blocklistParser, list.getDownloadUrl(), list.getId(), null, 0);
+            parseList(list.getName(), blocklistParser, list.getDownloadUrl(), list.getId(), Instant.now(), 0);
         });
     }
 
@@ -74,20 +74,25 @@ public class App {
     private static boolean parseList(String listName, BlocklistParser<Domain> parser, String url, UUID blocklistId, Instant createdOn, int attempt) {
         Version createdVersion = null;
         try {
-            var parsedList = parser.parseUrl(url);
-            if (parsedList.getRecords().isEmpty()) {
-                LOGGER.warn("List {} is empty! Url: {}", listName, url);
-            }
-            var version = new Version(blocklistId, parsedList, createdOn, false);
             var optionalPreviousVersion= loadListsPreviousVersion(blocklistId);
             TreeSet<Domain> previousEntries = new TreeSet<>();
             var previousVersion = optionalPreviousVersion.orElse(null);
             if (previousVersion != null) {
+                if (previousVersion.getLastSeen().isAfter(createdOn) || previousVersion.getLastSeen().equals(createdOn)) {
+                    LOGGER.warn("Previous version {} is newer then current version: {} >= {}. Skipping.", previousVersion.getId(), previousVersion.getLastSeen(), createdOn);
+                    return true;
+                }
                 var previousParsedList = client.getFullList(optionalPreviousVersion.get());
                 previousEntries.addAll(previousParsedList.getRecords());
             } else {
-                LOGGER.warn("No previous version found for list {}", listName);
+                LOGGER.warn("No previous version found for list {}: {}", listName, blocklistId);
             }
+            var parsedList = parser.parseUrl(url);
+            if (parsedList.getRecords().isEmpty()) {
+                LOGGER.warn("List {} is empty! Url: {}", listName, url);
+                return true;
+            }
+            var version = new Version(blocklistId, parsedList, createdOn, false);
             createdVersion = client.createVersion(version);
             var loadStarted = Instant.now();
             var noChanges = createEntryPeriods(listName, previousVersion, previousEntries, createdVersion, parsedList.getRecords());
@@ -143,13 +148,12 @@ public class App {
             }
             if (apiRequests.size() > 80) {
                 waitForRequestsToComplete(apiRequests);
-                apiRequests = new ArrayList<>();
             }
         }
         LOGGER.info("Loaded version of {}. Added {}, removed {}, unmodified {}", listName, addedCount, removedCount, unchangedCount);
         waitForRequestsToComplete(apiRequests);
 
-        return addedCount == 0 && removedCount == 0 && unchangedCount > 0;
+        return addedCount == 0 && removedCount == 0;
     }
 
     private static void waitForRequestsToComplete(ArrayList<CompletableFuture<Boolean>> apiRequests) {

@@ -154,7 +154,7 @@ public class BlocklistClient extends ApiClient {
         var future = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString());
         return future.thenApply(response -> {
             if (response.statusCode() != 201) {
-                throw new ApiException("Unable to start entry period. Api Status: " + response.statusCode() + ", body: " + response.body());
+                throw new ApiException("Unable to start entry period for <" + domain + ">. Api Status: " + response.statusCode() + ", body: " + response.body());
             }
             return true;
         });
@@ -168,7 +168,7 @@ public class BlocklistClient extends ApiClient {
         var future = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString());
         return future.thenApply(response -> {
             if (response.statusCode() != 201) {
-                throw new ApiException("Unable to end entry period " + lastIncludedVersion.getId() + ". Api Status: " + response.statusCode() + ", body: " + response.body());
+                throw new ApiException("Unable to end entry period. Version: " + lastIncludedVersion.getId() + ", <" + domain + ">. Api Status: " + response.statusCode() + ", body: " + response.body());
             }
             return true;
         });
@@ -198,6 +198,6 @@ public class BlocklistClient extends ApiClient {
     protected HttpRequest.Builder buildHttpRequest(String url) {
         return super.buildHttpRequest(url)
                 .header("Authorization-Token", configuration.blocklistApiAuthToken())
-                .timeout(Duration.ofSeconds(120));
+                .timeout(Duration.ofMinutes(8));
     }
 }

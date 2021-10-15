@@ -1,7 +1,6 @@
 package com.developerdan.blocklist.loader.entity;
 
 import com.developerdan.blocklist.tools.ParsedList;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.Instant;
 import java.util.UUID;
