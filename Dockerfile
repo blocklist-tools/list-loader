@@ -1,4 +1,4 @@
-FROM maven:3.6-openjdk-14 as mvn
+FROM maven:3.8-openjdk-17-slim as mvn
 COPY . /opt/list-loader
 WORKDIR "/opt/list-loader/"
 RUN mvn clean package \
@@ -6,7 +6,7 @@ RUN mvn clean package \
     && mv /opt/list-loader/target/blocklist-loader*shaded.jar /opt/list-loader/app.jar
 
 
-FROM openjdk:14-jdk-buster
+FROM openjdk:17-jdk-bullseye
 ARG JAR_FILE=target/*.jar
 COPY --from=mvn /opt/list-loader/app.jar /opt/list-loader/app.jar
 WORKDIR "/opt/list-loader/"

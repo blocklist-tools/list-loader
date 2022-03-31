@@ -15,7 +15,7 @@ services:
      - ./history-files:/opt/history-files
 
   mvn:
-    image: maven:3.6-openjdk-14
+    image: maven:3.8-openjdk-17-slim
     volumes:
       - "${PWD}/:/opt/list-loader"
       - "${HOME}/.m2:/root/.m2"
